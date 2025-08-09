@@ -7,9 +7,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Find required packages
 find_package(Threads REQUIRED)
 
-# Try to find CUDA (optional)
-find_package(CUDA QUIET)
-if(CUDA_FOUND)
+# Try to find CUDA (optional) - use modern CMake CUDA support
+include(CheckLanguage)
+check_language(CUDA)
+if(CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
     set(CMAKE_CUDA_STANDARD 17)
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)
@@ -18,8 +19,10 @@ if(CUDA_FOUND)
     set(CMAKE_CUDA_FLAGS_RELEASE "-O3 -DNDEBUG")
     add_definitions(-DHPC_REGEX_CUDA_ENABLED)
     message(STATUS "CUDA found - GPU acceleration enabled")
+    set(CUDA_FOUND TRUE)
 else()
     message(STATUS "CUDA not found - building CPU-only version")
+    set(CUDA_FOUND FALSE)
 endif()
 
 # Compiler flags
@@ -30,9 +33,6 @@ endif()
 
 # Include directories
 include_directories(include)
-if(CUDA_FOUND)
-    include_directories(${CUDA_INCLUDE_DIRS})
-endif()
 
 # Source files
 set(CPU_SOURCES
@@ -65,18 +65,16 @@ set(HEADER_FILES
 
 # Create static library
 add_library(hpc_regex_static STATIC ${ALL_SOURCES})
+target_link_libraries(hpc_regex_static Threads::Threads)
 if(CUDA_FOUND)
-    target_link_libraries(hpc_regex_static ${CUDA_LIBRARIES} Threads::Threads)
-else()
-    target_link_libraries(hpc_regex_static Threads::Threads)
+    set_property(TARGET hpc_regex_static PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
 
 # Create shared library
 add_library(hpc_regex_shared SHARED ${ALL_SOURCES})
+target_link_libraries(hpc_regex_shared Threads::Threads)
 if(CUDA_FOUND)
-    target_link_libraries(hpc_regex_shared ${CUDA_LIBRARIES} Threads::Threads)
-else()
-    target_link_libraries(hpc_regex_shared Threads::Threads)
+    set_property(TARGET hpc_regex_shared PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
 
 # Benchmark executable
